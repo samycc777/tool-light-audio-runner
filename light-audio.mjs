@@ -111,7 +111,8 @@ async function one(key, dir) {
     "-vbr", "constrained", "-application", "voip", "-map_metadata", "-1", "-reserve_index_space", String(index), "-f", "webm", out], { maxBuffer: 1 << 24 });
   const made = statSync(out).size;
   const lasts = Number(JSON.parse((await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "json", out])).stdout).format?.duration);
-  if (!(Math.abs(lasts - seconds) < Math.max(3, seconds * 0.01))) throw new Error(`copy lasts ${lasts}s, original ${seconds}s`);
+  // A file whose own length is wrong gives the same result every time: recorded, so it isn't fetched again each day.
+  if (!(Math.abs(lasts - seconds) < Math.max(3, seconds * 0.01))) return { skip: `copy lasts ${Math.round(lasts)} s, the original says ${Math.round(seconds)} s` };
   if (made > size * WORTH) return { skip: `copy saves too little (${Math.round(kbps)} kbps)` };
 
   await r2.send(new PutObjectCommand({
