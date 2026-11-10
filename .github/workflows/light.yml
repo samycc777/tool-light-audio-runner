@@ -1,0 +1,37 @@
+# Makes the light copies of one site's heavy recordings (see CLAUDE.md). Started by hand:
+#   gh workflow run light.yml -f list=lists/<site>.txt
+# The four jobs each take a quarter of the list; their results come back as small JSON files.
+name: light audio
+on:
+  workflow_dispatch:
+    inputs:
+      list:
+        description: List of R2 keys to look at
+        default: lists/ali-hudhaify.txt
+permissions:
+  contents: read
+jobs:
+  light:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: npm install --no-save --no-audit --no-fund @aws-sdk/client-s3
+      - run: node light-audio.mjs --list "$LIST" --shard ${{ matrix.shard }}/4 --out out-${{ matrix.shard }}.json
+        env:
+          LIST: ${{ inputs.list }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: out-${{ matrix.shard }}
+          path: out-${{ matrix.shard }}.json
+          if-no-files-found: ignore
